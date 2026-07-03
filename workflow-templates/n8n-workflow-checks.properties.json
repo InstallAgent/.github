@@ -1,0 +1,6 @@
+{
+    "name": "n8n workflow checks",
+    "description": "Validates n8n workflow JSON exports: valid JSON, one workflow per file, no pinned data, no obvious secrets.",
+    "categories": ["Automation"],
+    "filePatterns": ["workflows/.*\\.json$"]
+}

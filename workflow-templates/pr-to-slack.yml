@@ -1,0 +1,81 @@
+name: PR → Slack (approve / close)
+
+# Posts every new PR to Slack with "Merge" and "Close" buttons.
+# This workflow only POSTS (it is read-only). The button clicks are handled by
+# the n8n workflow "GitHub PR Actions (Slack)" at
+# https://n8n.installagent.com/webhook/slack-pr-action , which performs the
+# actual merge/close using the "Github - Install Agent Bot" credential.
+#
+# Required repo secret:
+#   SLACK_PR_WEBHOOK_URL  — a Slack Incoming Webhook URL bound to the review
+#                           channel. The webhook's app must have Interactivity
+#                           enabled and pointed at the n8n receiver URL above.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post PR to Slack with action buttons
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_ADDITIONS: ${{ github.event.pull_request.additions }}
+          PR_DELETIONS: ${{ github.event.pull_request.deletions }}
+          PR_CHANGED: ${{ github.event.pull_request.changed_files }}
+        run: |
+          set -euo pipefail
+          # Build the Block Kit payload with jq so PR titles/branches that
+          # contain quotes or other JSON-breaking characters are escaped safely.
+          payload=$(jq -n \
+            --arg num "$PR_NUMBER" \
+            --arg title "$PR_TITLE" \
+            --arg url "$PR_URL" \
+            --arg author "$PR_AUTHOR" \
+            --arg base "$PR_BASE" \
+            --arg head "$PR_HEAD" \
+            --arg stats "+$PR_ADDITIONS / -$PR_DELETIONS · $PR_CHANGED files" \
+            '{
+              text: ("New PR #" + $num + ": " + $title),
+              blocks: [
+                { type: "header",
+                  text: { type: "plain_text", text: ("🔀 PR #" + $num + " needs review") } },
+                { type: "section",
+                  text: { type: "mrkdwn",
+                          text: ( "*<" + $url + "|" + $title + ">*\n"
+                                + "by `" + $author + "`  •  `" + $head + "` → `" + $base + "`\n"
+                                + $stats ) } },
+                { type: "actions",
+                  block_id: ("pr_" + $num),
+                  elements: [
+                    { type: "button", style: "primary", action_id: "pr_merge",
+                      text: { type: "plain_text", text: "✅ Merge" }, value: $num,
+                      confirm: {
+                        title:   { type: "plain_text", text: "Merge this PR?" },
+                        text:    { type: "mrkdwn", text: ("Squash-merge PR #" + $num + " into `" + $base + "` and delete `" + $head + "`.") },
+                        confirm: { type: "plain_text", text: "Merge" },
+                        deny:    { type: "plain_text", text: "Cancel" } } },
+                    { type: "button", style: "danger", action_id: "pr_close",
+                      text: { type: "plain_text", text: "🗑️ Close" }, value: $num,
+                      confirm: {
+                        title:   { type: "plain_text", text: "Close this PR?" },
+                        text:    { type: "mrkdwn", text: ("Close PR #" + $num + " without merging.") },
+                        confirm: { type: "plain_text", text: "Close" },
+                        deny:    { type: "plain_text", text: "Cancel" } } }
+                  ] }
+              ]
+            }')
+          curl -sS -X POST -H 'Content-type: application/json' \
+            --data "$payload" "$SLACK_WEBHOOK_URL"

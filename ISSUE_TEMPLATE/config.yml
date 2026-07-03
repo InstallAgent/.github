@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Install Agent website
+    url: https://installagent.com
+    about: "Client or prospect? Reach us through the website instead of filing an issue."
+  - name: Team hub (org members)
+    url: https://docs.installagent.com
+    about: Onboarding, runbooks, and templates live in the internal docs site.

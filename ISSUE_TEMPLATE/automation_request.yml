@@ -1,0 +1,57 @@
+name: ⚙️ Automation request
+description: Request a new n8n automation — for the shared library or a specific client.
+title: "[automation]: "
+labels: ["automation"]
+body:
+  - type: dropdown
+    id: destination
+    attributes:
+      label: Destination
+      options:
+        - Shared workflow library (reusable product)
+        - Specific client build (client-* repo)
+        - Internal (Hermes / agent-marketing)
+    validations:
+      required: true
+  - type: textarea
+    id: business-problem
+    attributes:
+      label: Business problem
+      description: What manual work or failure mode does this automation remove? Who benefits?
+    validations:
+      required: true
+  - type: textarea
+    id: trigger-and-flow
+    attributes:
+      label: Trigger and rough flow
+      description: What kicks it off (webhook, schedule, email, file drop...) and what should happen, step by step?
+      placeholder: |
+        Trigger: new row in ...
+        1. Fetch ...
+        2. Claude drafts ...
+        3. Post to ...
+    validations:
+      required: true
+  - type: textarea
+    id: systems
+    attributes:
+      label: Systems involved
+      description: Tools/APIs the workflow must touch (CRM, email, Sheets, Slack, SFTP drop, etc.).
+    validations:
+      required: true
+  - type: dropdown
+    id: data-sensitivity
+    attributes:
+      label: Data sensitivity
+      description: Does the workflow handle customer PII or otherwise sensitive data?
+      options:
+        - No sensitive data
+        - Handles client business data
+        - Handles end-customer PII (extra care — see golden rules)
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: What does failure look like?
+      description: If this automation silently breaks, what's the blast radius? How would we notice?

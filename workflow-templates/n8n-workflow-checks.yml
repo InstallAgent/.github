@@ -1,0 +1,60 @@
+name: n8n workflow checks
+
+# Sanity checks for repos that hold n8n workflow JSON exports.
+# Enforces the org golden rules that a machine can verify:
+#   - every workflow file is valid JSON with a top-level `nodes` array
+#     (one workflow per file)
+#   - no pinned data committed (`pinData` must be empty/absent)
+#   - no obvious secrets (credential values, API keys, tokens)
+# The human rules (emoji node names, idempotency, 📋 Log Action nodes)
+# still belong to PR review — see skills/n8n-workflow.md.
+
+on:
+  push:
+    branches: [$default-branch]
+    paths: ["**/*.json"]
+  pull_request:
+    paths: ["**/*.json"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate workflow JSON
+        run: |
+          set -euo pipefail
+          fail=0
+          # Only inspect files that look like n8n workflow exports.
+          while IFS= read -r -d '' f; do
+            if ! jq empty "$f" 2>/dev/null; then
+              echo "::error file=$f::Invalid JSON"
+              fail=1
+              continue
+            fi
+            # Skip JSON that isn't an n8n workflow (no nodes array).
+            if [ "$(jq 'has("nodes")' "$f")" != "true" ]; then
+              continue
+            fi
+            if [ "$(jq '.nodes | type == "array"' "$f")" != "true" ]; then
+              echo "::error file=$f::\"nodes\" must be an array (one workflow per file)"
+              fail=1
+            fi
+            if [ "$(jq '(.pinData // {}) | length' "$f")" != "0" ]; then
+              echo "::error file=$f::pinData must be removed before committing (may contain real data)"
+              fail=1
+            fi
+          done < <(find . -name '*.json' -not -path './node_modules/*' -not -path './.git/*' -print0)
+          exit $fail
+
+      - name: Scan for secrets
+        run: |
+          set -euo pipefail
+          # Obvious secret shapes in any tracked file. Extend as needed.
+          patterns='sk-[A-Za-z0-9_-]{20,}|xox[bpars]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9]{36}'
+          if grep -rInE "$patterns" --exclude-dir=.git --exclude-dir=node_modules .; then
+            echo "::error::Possible secret committed — move it to 1Password and rotate it."
+            exit 1
+          fi
+          echo "No obvious secrets found."

@@ -1,0 +1,38 @@
+name: 💡 Feature request
+description: Propose an improvement to an app, workflow, or process.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Web app (marketing site / docs / operations)
+        - n8n workflow
+        - Infrastructure (n8n hosting / SFTP / AWS)
+        - Client build (client-* repo)
+        - Client registry (team-clients)
+        - Design system
+        - Team process / docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What's painful or missing today? Describe the problem before the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you solve it? Rough is fine.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

@@ -1,0 +1,52 @@
+name: 🐞 Bug report
+description: Something is broken — in an app, a workflow, or infrastructure.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where does the bug live?
+      options:
+        - Web app (marketing site / docs / operations)
+        - n8n workflow
+        - Infrastructure (n8n hosting / SFTP / AWS)
+        - Client build (client-* repo)
+        - Client registry (team-clients)
+        - Design system
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+      placeholder: The docs build fails on main with...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `pnpm dev:docs`
+        2. Open http://localhost:3001/...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Logs / screenshots / context
+      description: |
+        Paste relevant output. ⚠️ Redact secrets and customer data before pasting —
+        no API keys, credential IDs, tokens, or client PII in issues.
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Data hygiene
+      options:
+        - label: This issue contains no secrets and no customer PII.
+          required: true

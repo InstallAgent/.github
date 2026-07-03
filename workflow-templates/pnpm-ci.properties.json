@@ -1,0 +1,6 @@
+{
+    "name": "Install Agent pnpm CI",
+    "description": "Standard CI for pnpm + Biome + TypeScript repos: check, type-check, test, build.",
+    "categories": ["JavaScript", "TypeScript"],
+    "filePatterns": ["package.json$", "pnpm-lock.yaml$"]
+}
