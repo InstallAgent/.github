@@ -4,12 +4,22 @@ name: PR → Slack (approve / close)
 # This workflow only POSTS (it is read-only). The button clicks are handled by
 # the n8n workflow "GitHub PR Actions (Slack)" at
 # https://n8n.installagent.com/webhook/slack-pr-action , which performs the
-# actual merge/close using the "Github - Install Agent Bot" credential.
+# actual merge/close using the "Github - Install Agent Bot" credential. That
+# receiver derives owner/repo/PR number by regex over the PR URL in the message
+# blocks, so it is repo-agnostic — keep the PR URL in a section block below.
 #
-# Required repo secret:
+# Required secret:
 #   SLACK_PR_WEBHOOK_URL  — a Slack Incoming Webhook URL bound to the review
-#                           channel. The webhook's app must have Interactivity
+#                           channel. Set once as an ORGANIZATION
+#                           secret with visibility "all repositories", so every
+#                           current and future repo is covered with no per-repo
+#                           setup. A repo-level secret of the same name also
+#                           works and takes precedence.
+#                           The webhook's Slack app must have Interactivity
 #                           enabled and pointed at the n8n receiver URL above.
+#
+# If the secret is absent the job logs a notice and exits green, so this file is
+# safe to land in a repo before the secret exists.
 
 on:
   pull_request:
@@ -21,11 +31,15 @@ permissions:
 
 jobs:
   notify:
+    # Drafts are not ready to review, and skipping them also stops the
+    # duplicate post a draft would otherwise make on opened + ready_for_review.
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Post PR to Slack with action buttons
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_PR_WEBHOOK_URL }}
+          PR_REPO: ${{ github.event.repository.name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -37,9 +51,14 @@ jobs:
           PR_CHANGED: ${{ github.event.pull_request.changed_files }}
         run: |
           set -euo pipefail
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "::notice::SLACK_PR_WEBHOOK_URL is not set (org or repo secret) — skipping the Slack post."
+            exit 0
+          fi
           # Build the Block Kit payload with jq so PR titles/branches that
           # contain quotes or other JSON-breaking characters are escaped safely.
           payload=$(jq -n \
+            --arg repo "$PR_REPO" \
             --arg num "$PR_NUMBER" \
             --arg title "$PR_TITLE" \
             --arg url "$PR_URL" \
@@ -48,10 +67,10 @@ jobs:
             --arg head "$PR_HEAD" \
             --arg stats "+$PR_ADDITIONS / -$PR_DELETIONS · $PR_CHANGED files" \
             '{
-              text: ("New PR #" + $num + ": " + $title),
+              text: ("New PR in " + $repo + " #" + $num + ": " + $title),
               blocks: [
                 { type: "header",
-                  text: { type: "plain_text", text: ("🔀 PR #" + $num + " needs review") } },
+                  text: { type: "plain_text", text: ("🔀 " + $repo + " · PR #" + $num) } },
                 { type: "section",
                   text: { type: "mrkdwn",
                           text: ( "*<" + $url + "|" + $title + ">*\n"
@@ -64,18 +83,20 @@ jobs:
                       text: { type: "plain_text", text: "✅ Merge" }, value: $num,
                       confirm: {
                         title:   { type: "plain_text", text: "Merge this PR?" },
-                        text:    { type: "mrkdwn", text: ("Squash-merge PR #" + $num + " into `" + $base + "` and delete `" + $head + "`.") },
+                        text:    { type: "mrkdwn", text: ("Squash-merge *" + $repo + "* PR #" + $num + " into `" + $base + "` and delete `" + $head + "`.") },
                         confirm: { type: "plain_text", text: "Merge" },
                         deny:    { type: "plain_text", text: "Cancel" } } },
                     { type: "button", style: "danger", action_id: "pr_close",
                       text: { type: "plain_text", text: "🗑️ Close" }, value: $num,
                       confirm: {
                         title:   { type: "plain_text", text: "Close this PR?" },
-                        text:    { type: "mrkdwn", text: ("Close PR #" + $num + " without merging.") },
+                        text:    { type: "mrkdwn", text: ("Close *" + $repo + "* PR #" + $num + " without merging.") },
                         confirm: { type: "plain_text", text: "Close" },
                         deny:    { type: "plain_text", text: "Cancel" } } }
                   ] }
               ]
             }')
-          curl -sS -X POST -H 'Content-type: application/json' \
+          # --fail-with-body so a rejected payload or a dead webhook turns the
+          # job red instead of passing silently on Slack's 4xx body.
+          curl -sS --fail-with-body -X POST -H 'Content-type: application/json' \
             --data "$payload" "$SLACK_WEBHOOK_URL"

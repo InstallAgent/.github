@@ -22,7 +22,7 @@ Any org repo **without its own copy** of these files inherits them automatically
 | Template | Use in |
 |---|---|
 | `pnpm-ci.yml` | pnpm + Biome + TypeScript repos (`team-web`, client web builds). Canonical version lives in `team-web/.github/workflows/ci.yml` — keep in sync. |
-| `pr-to-slack.yml` | Any repo that should post PRs to Slack with Merge/Close buttons. Requires the `SLACK_PR_WEBHOOK_URL` repo secret; buttons are handled by the n8n workflow *GitHub PR Actions (Slack)*. |
+| `pr-to-slack.yml` | Any repo that should post PRs to Slack with Merge/Close buttons. Reads the `SLACK_PR_WEBHOOK_URL` **organization** secret (visibility: all repositories), so a new repo needs no setup — a repo secret of the same name also works. Without the secret the job logs a notice and exits green. Buttons are handled by the n8n workflow *GitHub PR Actions (Slack)*, which parses owner/repo/PR number out of the PR URL in the message blocks — keep that section block. Every InstallAgent repo already runs this; the template is here for new ones. |
 | `n8n-workflow-checks.yml` | Repos holding n8n workflow JSON (`team-infra`, `client-*`). Validates JSON, one-workflow-per-file, no `pinData`, no obvious secrets. |
 
 Each template has a matching `.properties.json` that controls how GitHub lists it.
