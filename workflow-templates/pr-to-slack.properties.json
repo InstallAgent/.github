@@ -1,5 +1,5 @@
 {
     "name": "PR → Slack (approve / close)",
-    "description": "Posts every new PR to Slack with Merge/Close buttons handled by the n8n 'GitHub PR Actions (Slack)' workflow. Requires the SLACK_PR_WEBHOOK_URL repo secret.",
+    "description": "Posts every new PR to Slack as @Agent Zero, with Merge/Close buttons the bot itself handles. Requires the SLACK_PR_BOT_TOKEN and SLACK_PR_CHANNEL_ID repo/org secrets.",
     "categories": ["Automation"]
 }
