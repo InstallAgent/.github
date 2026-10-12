@@ -1,5 +1,5 @@
 {
     "name": "PR → Slack (approve / close)",
-    "description": "Posts every new PR to Slack as @Agent Zero, with Merge/Close buttons the bot itself handles. Requires the SLACK_PR_BOT_TOKEN and SLACK_PR_CHANNEL_ID repo/org secrets.",
+    "description": "Posts every new PR (except new-lead add-client/* branches) to Slack as @Agent Zero, with Merge/Close buttons the bot itself handles. Requires the SLACK_PR_BOT_TOKEN and SLACK_PR_CHANNEL_ID repo/org secrets.",
     "categories": ["Automation"]
 }
