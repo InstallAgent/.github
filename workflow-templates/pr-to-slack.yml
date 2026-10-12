@@ -1,7 +1,8 @@
 name: PR → Slack (approve / close)
 
 # Posts every new PR to Slack (as @Agent Zero) with "Merge" and "Close"
-# buttons. This workflow only POSTS (it is read-only). The button clicks are
+# buttons — except new-lead `add-client/*` PRs (see the job's `if:`).
+# This workflow only POSTS (it is read-only). The button clicks are
 # handled by @Agent Zero itself — team-tools/apps/slack-agent, Bolt Socket
 # Mode, the `pr_merge`/`pr_close` action handlers in src/app.ts — which
 # squash-merges (or closes) via the GitHub API using its own write-scoped
@@ -38,7 +39,11 @@ jobs:
   notify:
     # Drafts are not ready to review, and skipping them also stops the
     # duplicate post a draft would otherwise make on opened + ready_for_review.
-    if: github.event.pull_request.draft == false
+    # `add-client/*` branches are new-lead PRs (n8n "New lead v3" opens them
+    # in team-clients). Their Merge/Close buttons live on the lead card in
+    # #notify-leads (`lead_pr_merge`/`lead_pr_close`), so they skip
+    # #notify-prs. Every other branch, `add-call/*` included, still posts.
+    if: github.event.pull_request.draft == false && !startsWith(github.event.pull_request.head.ref, 'add-client/')
     runs-on: ubuntu-latest
     steps:
       - name: Post PR to Slack with action buttons
