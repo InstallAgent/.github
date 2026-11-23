@@ -11,6 +11,12 @@ name: PR → Slack (approve / close)
 # carries the owner/repo + PR number as JSON, so this workflow stays
 # repo-agnostic — no regex over the posted message, no per-repo config.
 #
+# Owner tag: every card names its owner ("Owner: @name"), which pings them.
+# Client repos tag the client's technician (Airtable Clients - Master), then
+# the Linear project lead, then Angello; internal repos tag Angello. The n8n
+# workflow "IA - pr-owner - PR card owner lookup" (pWoIkUg70bonBMWJ, GET
+# /webhook/pr-owner?repo=<name>) answers. No answer = the card posts untagged.
+#
 # Required secrets (both ORGANIZATION secrets, visibility "all repositories",
 # set once so every current and future repo is covered with no per-repo
 # setup — a repo-level secret of the same name also works and takes
@@ -73,9 +79,17 @@ jobs:
           # ({"repo":"owner/repo","pr":N}) — Agent Zero parses that directly,
           # so it never has to regex the rendered Slack message to figure out
           # which PR a click was for.
+          # Owner to tag (see the header). Fails open: a slow or broken lookup
+          # leaves $owner empty and the card posts with no tag.
+          owner=""
+          if lookup=$(curl -sS --max-time 15 -G --data-urlencode "repo=$PR_REPO" \
+              https://n8n.installagent.com/webhook/pr-owner 2>/dev/null); then
+            owner=$(printf '%s' "$lookup" | jq -r '[.slackIds[]? | strings | select(test("^[UW][A-Z0-9]+$")) | "<@" + . + ">"] | join(" ")' 2>/dev/null || true)
+          fi
           payload=$(jq -n \
             --arg channel "$SLACK_CHANNEL_ID" \
             --arg repo "$PR_REPO" \
+            --arg owner "$owner" \
             --arg repoFull "$PR_REPO_FULL" \
             --arg num "$PR_NUMBER" \
             --arg title "$PR_TITLE" \
@@ -86,7 +100,8 @@ jobs:
             --arg stats "+$PR_ADDITIONS / -$PR_DELETIONS · $PR_CHANGED files" \
             '{
               channel: $channel,
-              text: ("New PR in " + $repo + " #" + $num + ": " + $title),
+              text: ("New PR in " + $repo + " #" + $num + ": " + $title
+                     + (if $owner == "" then "" else " · owner " + $owner end)),
               blocks: [
                 { type: "header",
                   text: { type: "plain_text", text: ("🔀 " + $repo + " · PR #" + $num) } },
@@ -94,7 +109,8 @@ jobs:
                   text: { type: "mrkdwn",
                           text: ( "*<" + $url + "|" + $title + ">*\n"
                                 + "by `" + $author + "`  •  `" + $head + "` → `" + $base + "`\n"
-                                + $stats ) } },
+                                + $stats
+                                + (if $owner == "" then "" else "\nOwner: " + $owner end) ) } },
                 { type: "actions",
                   block_id: ("pr_" + $num),
                   elements: [
