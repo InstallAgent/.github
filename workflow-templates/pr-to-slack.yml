@@ -16,8 +16,9 @@ name: PR → Slack (approve / close)
 # the Linear project lead, then Angello; internal repos tag Angello. The n8n
 # workflow "IA - pr-owner - PR card owner lookup" (pWoIkUg70bonBMWJ, GET
 # /webhook/pr-owner?repo=<name>) answers. No answer = the card posts untagged.
+# The lookup needs the PR_OWNER_KEY secret, sent as the X-PR-Owner-Key header.
 #
-# Required secrets (both ORGANIZATION secrets, visibility "all repositories",
+# Required secrets (all ORGANIZATION secrets, visibility "all repositories",
 # set once so every current and future repo is covered with no per-repo
 # setup — a repo-level secret of the same name also works and takes
 # precedence):
@@ -29,6 +30,10 @@ name: PR → Slack (approve / close)
 #                           clicks, so the posting identity and the
 #                           interactivity receiver have to be the same app.
 #   SLACK_PR_CHANNEL_ID   — the Slack channel ID (#notify-prs) to post into.
+#   PR_OWNER_KEY          — shared key for the owner lookup; the same value
+#                           is in the n8n credential "IA - pr-owner -
+#                           header-auth". Without it the card still posts,
+#                           with no owner tag.
 #
 # If either secret is absent the job logs a notice and exits green, so this
 # file is safe to land in a repo before the secrets exist.
@@ -56,6 +61,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_PR_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_PR_CHANNEL_ID }}
+          PR_OWNER_KEY: ${{ secrets.PR_OWNER_KEY }}
           PR_REPO: ${{ github.event.repository.name }}
           PR_REPO_FULL: ${{ github.event.repository.full_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -82,7 +88,8 @@ jobs:
           # Owner to tag (see the header). Fails open: a slow or broken lookup
           # leaves $owner empty and the card posts with no tag.
           owner=""
-          if lookup=$(curl -sS --max-time 15 -G --data-urlencode "repo=$PR_REPO" \
+          if lookup=$(curl -sS --max-time 15 -G -H "X-PR-Owner-Key: ${PR_OWNER_KEY:-}" \
+              --data-urlencode "repo=$PR_REPO" \
               https://n8n.installagent.com/webhook/pr-owner 2>/dev/null); then
             owner=$(printf '%s' "$lookup" | jq -r '[.slackIds[]? | strings | select(test("^[UW][A-Z0-9]+$")) | "<@" + . + ">"] | join(" ")' 2>/dev/null || true)
           fi
